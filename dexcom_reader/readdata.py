@@ -1,18 +1,15 @@
-from __future__ import print_function # python 2 and 3 compatible
+from __future__ import print_function  # python 2 and 3 compatible
 
-from . import constants
-from . import util
-from . import crc16
-from . import database_records
-from . import packetwriter
+import constants
+import util
+import crc16
+import database_records
+import packetwriter
 import datetime
 import serial
 import sys
-import time
 import struct
-import re
 import xml.etree.ElementTree as ET
-import platform
 
 
 class ReadPacket(object):
@@ -100,14 +97,14 @@ class Dexcom(object):
         out =  ''
       suffix = bytes(self.read(2))
       sent_crc_le = struct.unpack('<H', suffix)[0]
-      #sent_crc_be = struct.unpack('>H', suffix)[0]
+      # sent_crc_be = struct.unpack('>H', suffix)[0]
       local_crc = crc16.crc16(all_data, 0, total_read)
-      if local_crc != sent_crc_le: #not in {sent_crc_le, sent_crc_be}:
+      if local_crc != sent_crc_le:  # not in {sent_crc_le, sent_crc_be}:
         raise constants.CrcError("readpacket Failed CRC check {:04x} != {:04x}".format(local_crc, sent_crc_le))
       num1 = total_read + 2
       return ReadPacket(command, out)
     else:
-      raise constants.Error('Error reading packet header, device did not ACK!' + str(inital_read[0]))
+      raise constants.Error('Error reading packet header, device did not ACK!' + str(initial_read[0]))
 
   def Ping(self):
     self.WriteCommand(constants.PING)
@@ -145,7 +142,8 @@ class Dexcom(object):
 
   def ReadBatteryState(self):
     state = self.GenericReadCommand(constants.READ_BATTERY_STATE).data
-    return constants.BATTERY_STATES[ord(state)]
+    # Added util
+    return constants.BATTERY_STATES[util.Ord(state)]
 
   def ReadRTC(self):
     rtc = self.GenericReadCommand(constants.READ_RTC).data
@@ -176,12 +174,14 @@ class Dexcom(object):
   def ReadGlucoseUnit(self):
     UNIT_TYPE = (None, 'mg/dL', 'mmol/L')
     gu = self.GenericReadCommand(constants.READ_GLUCOSE_UNIT).data
-    return UNIT_TYPE[ord(gu[0])]
+    # Added util
+    return UNIT_TYPE[util.Ord(gu[0])]
 
   def ReadClockMode(self):
     CLOCK_MODE = (24, 12)
     cm = self.GenericReadCommand(constants.READ_CLOCK_MODE).data
-    return CLOCK_MODE[ord(cm[0])]
+    # Added util
+    return CLOCK_MODE[util.Ord(cm[0])]
 
   def ReadDeviceMode(self):
     # ???

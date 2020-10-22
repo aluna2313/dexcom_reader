@@ -1,6 +1,6 @@
-from . import crc16
-from . import constants
-from . import util
+import crc16
+import constants
+import util
 import struct
 import binascii
 
@@ -161,9 +161,8 @@ class Calibration(GenericTimestampedRecord):
     return cls(unpacked_data, raw_data)
 
   def __init__ (self, data, raw_data):
+    super().__init__(data, raw_data)
     self.page_data = raw_data
-    self.raw_data = raw_data
-    self.data = data
     subsize = struct.calcsize(SubCal.FORMAT)
     offset = self.numsub * subsize
     calsize = struct.calcsize(self.FORMAT)
@@ -200,8 +199,8 @@ class SubCal (GenericTimestampedRecord):
   FORMAT = '<IIIIc'
   BASE_FIELDS = [ ]
   FIELDS = [ 'entered', 'meter',  'sensor', 'applied', ]
-  def __init__ (self, raw_data, displayOffset=None):
-    self.raw_data = raw_data
+  def __init__ (self, data, raw_data, displayOffset=None):
+    super().__init__(data, raw_data)
     self.data = self._ClassFormat().unpack(raw_data)
     self.displayOffset = displayOffset
   @property

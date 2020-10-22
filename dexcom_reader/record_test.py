@@ -1,4 +1,3 @@
-from future import print_function
 import readdata
 
 dd = readdata.Dexcom.FindDevice()

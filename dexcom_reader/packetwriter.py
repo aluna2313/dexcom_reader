@@ -1,5 +1,5 @@
-from . import crc16
-from . import util
+import crc16
+import util
 import struct
 
 class PacketWriter(object):
