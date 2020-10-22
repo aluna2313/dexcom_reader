@@ -36,7 +36,7 @@ def crc16(buf, start=None, end=None):
   num = 0
   for i in range(start, end):
     if sys.version_info[0] == 2:
-        num = ((num<<8)&0xff00) ^ TABLE[((num>>8)&0xff)^ord(buf[i])]
+        num = ((num << 8) & 0xff00) ^ TABLE[((num >> 8) & 0xff) ^ ord(buf[i])]
     else:
-        num = ((num<<8)&0xff00) ^ TABLE[((num>>8)&0xff)^buf[i]]
+        num = ((num << 8) & 0xff00) ^ TABLE[((num >> 8) & 0xff) ^ buf[i]]
   return num & 0xffff
