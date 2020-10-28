@@ -252,7 +252,7 @@ class Dexcom(object):
     return struct.unpack('II', packet.data)
 
  # def ReadDatabasePageRangeNumericalIndex(self):
-   # x = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 20, 21]
+   # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 20, 21] = full list of database indices after investigation
    # for i in range(256):
      # record_type_index = i
      # self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
@@ -261,6 +261,19 @@ class Dexcom(object):
      # if packet.data != b'\x00':
        # x.append([i, struct.unpack('II', packet.data)])
    # print(x)
+
+  def GetDatabasePackets(self):
+    file = open("database_packets.bin", "wb")
+    for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 20, 21]:
+      record_type_index = i
+      heading = '   Packets for Database w/ Index = %d   ' % i
+      file.write(heading.encode())
+      for j in range(self.ReadDatabasePageRange(i)[0], self.ReadDatabasePageRange(i)[1] + 1):
+        self.WriteCommand(constants.READ_DATABASE_PAGES,
+                          (chr(record_type_index), struct.pack('I', j), chr(1)))
+        packet = self.readpacket()
+        file.write(packet.data)
+    file.close()
 
   def ReadDatabasePage(self, record_type, page):
     if type(record_type) == str:
@@ -276,13 +289,11 @@ class Dexcom(object):
     header_format = '<2IcB4IH'
     header_data_len = struct.calcsize(header_format)
     header = struct.unpack_from(header_format, packet.data)
-    print(header)
     header_crc = crc16.crc16(packet.data[:header_data_len - 2])
     assert header_crc == header[-1]
     assert util.Ord(header[2]) == record_type_index, "{a} != {b}".format(a=util.Ord(header[2]), b=record_type_index)
     assert header[4] == page
     packet_data = packet.data[header_data_len:]
-    print(packet_data)
 
     return self.ParsePage(header, packet_data)
 
@@ -302,6 +313,31 @@ class Dexcom(object):
       'EGV_DATA': database_records.EGVRecord,
       'SENSOR_DATA': database_records.SensorRecord,
     }
+
+  def GetRevisionAndRecordType(self):
+    file = open("revisions_and_records.txt", 'w')
+    for i in [0, 1, 2, 7, 8, 12, 14, 20, 21]:
+      # excluded all databases w/ the range (4294967295, 4294967295) as they produced errors
+      record_type_index = i
+      self.WriteCommand(constants.READ_DATABASE_PAGES,
+                        (chr(record_type_index), struct.pack('I', self.ReadDatabasePageRange(i)[0]), chr(1)))
+      packet = self.readpacket()
+      # assert util.Ord(packet.command) == constants.ACK
+      # first index (uint), numrec (uint), record_type (byte), revision (byte),
+      # page# (uint), r1 (uint), r2 (uint), r3 (uint), ushort (Crc)
+      header_format = '<2IcB4IH'
+      header_data_len = struct.calcsize(header_format)
+      header = struct.unpack_from(header_format, packet.data)
+      header_crc = crc16.crc16(packet.data[:header_data_len - 2])
+      assert header_crc == header[-1]
+      assert util.Ord(header[2]) == record_type_index, "{a} != {b}".format(a=util.Ord(header[2]), b=record_type_index)
+      assert header[4] == self.ReadDatabasePageRange(i)[0]
+      revision = int(header[3])
+      if util.Ord(header[2]) < 14:
+        record_type = constants.RECORD_TYPES[util.Ord(header[2])]
+      else:
+        record_type = util.Ord(header[2])
+      file.write('%s, %s \n' % (revision, record_type))
 
   def ParsePage(self, header, data):
     if util.Ord(header[2]) < 14:
