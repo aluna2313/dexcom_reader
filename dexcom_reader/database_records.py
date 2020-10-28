@@ -56,7 +56,9 @@ class BaseDatabaseRecord(object):
   def Create(cls, data, record_counter):
     offset = record_counter * cls._ClassSize()
     raw_data = data[offset:offset + cls._ClassSize()]
+    print(raw_data)
     unpacked_data = cls._ClassFormat().unpack(raw_data)
+    print(unpacked_data)
     return cls(unpacked_data, raw_data)
 
 
@@ -287,6 +289,8 @@ class SensorRecord(GenericTimestampedRecord):
   def rssi(self):
     return self.data[4]
 
+class OtherRecords(GenericTimestampedRecord):
+  FORMAT = '<2IHcH'
 
 class EGVRecord(GenericTimestampedRecord):
   # uint, uint, ushort, byte, ushort

@@ -242,14 +242,31 @@ class Dexcom(object):
     return ET.fromstring(i.data)
 
   def ReadDatabasePageRange(self, record_type):
-    record_type_index = constants.RECORD_TYPES.index(record_type)
+    if type(record_type) == str:
+      record_type_index = constants.RECORD_TYPES.index(record_type)
+    else:
+      record_type_index = record_type
     self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
-                      chr(record_type_index))
+                    chr(record_type_index))
     packet = self.readpacket()
     return struct.unpack('II', packet.data)
 
+ # def ReadDatabasePageRangeNumericalIndex(self):
+   # x = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 20, 21]
+   # for i in range(256):
+     # record_type_index = i
+     # self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
+      #                chr(record_type_index))
+     # packet = self.readpacket()
+     # if packet.data != b'\x00':
+       # x.append([i, struct.unpack('II', packet.data)])
+   # print(x)
+
   def ReadDatabasePage(self, record_type, page):
-    record_type_index = constants.RECORD_TYPES.index(record_type)
+    if type(record_type) == str:
+      record_type_index = constants.RECORD_TYPES.index(record_type)
+    else:
+      record_type_index = record_type
     self.WriteCommand(constants.READ_DATABASE_PAGES,
                       (chr(record_type_index), struct.pack('I', page), chr(1)))
     packet = self.readpacket()
@@ -259,17 +276,23 @@ class Dexcom(object):
     header_format = '<2IcB4IH'
     header_data_len = struct.calcsize(header_format)
     header = struct.unpack_from(header_format, packet.data)
-    header_crc = crc16.crc16(packet.data[:header_data_len-2])
+    print(header)
+    header_crc = crc16.crc16(packet.data[:header_data_len - 2])
     assert header_crc == header[-1]
     assert util.Ord(header[2]) == record_type_index, "{a} != {b}".format(a=util.Ord(header[2]), b=record_type_index)
     assert header[4] == page
     packet_data = packet.data[header_data_len:]
+    print(packet_data)
 
     return self.ParsePage(header, packet_data)
 
   def GenericRecordYielder(self, header, data, record_type):
-    for x in range(header[1]):
-      yield record_type.Create(data, x)
+    if type(record_type) == str:
+        for x in range(header[1]):
+          yield record_type.Create(data, x)
+    else:
+        for x in range(header[1]):
+          yield database_records.OtherRecords.Create(data, x)
 
   PARSER_MAP = {
       'USER_EVENT_DATA': database_records.EventRecord,
@@ -281,7 +304,10 @@ class Dexcom(object):
     }
 
   def ParsePage(self, header, data):
-    record_type = constants.RECORD_TYPES[util.Ord(header[2])]
+    if util.Ord(header[2]) < 14:
+      record_type = constants.RECORD_TYPES[util.Ord(header[2])]
+    else:
+      record_type = util.Ord(header[2])
     revision = int(header[3])
     generic_parser_map = self.PARSER_MAP
     if revision > 4 and record_type == 'EGV_DATA':
@@ -294,16 +320,17 @@ class Dexcom(object):
       generic_parser_map.update(CAL_SET=database_records.LegacyCalibration)
     xml_parsed = ['PC_SOFTWARE_PARAMETER', 'MANUFACTURING_DATA']
     if record_type in generic_parser_map:
-      return self.GenericRecordYielder(header, data,
-                                       generic_parser_map[record_type])
+      return self.GenericRecordYielder(header, data, generic_parser_map[record_type])
     elif record_type in xml_parsed:
       return [database_records.GenericXMLRecord.Create(data, 0)]
+    elif type(record_type) == int:
+      return self.GenericRecordYielder(header, data, record_type)
     else:
       raise NotImplementedError('Parsing of %s has not yet been implemented'
                                 % record_type)
 
   def iter_records (self, record_type):
-    assert record_type in constants.RECORD_TYPES
+    # assert record_type in constants.RECORD_TYPES
     page_range = self.ReadDatabasePageRange(record_type)
     start, end = page_range
     if start != end or not end:
@@ -316,7 +343,7 @@ class Dexcom(object):
   
   def ReadRecords(self, record_type):
     records = []
-    assert record_type in constants.RECORD_TYPES
+    # assert record_type in constants.RECORD_TYPES
     page_range = self.ReadDatabasePageRange(record_type)
     start, end = page_range
     if start != end or not end:
